@@ -1,0 +1,437 @@
+--[[
+    HeadlessKorbloxGui.lua
+    -----------------------
+    A LocalScript that creates a simple GUI with two toggle buttons:
+      1. "Enable Headless" - hides your character's head (client-side only)
+      2. "Enable Korblox"  - lets you pick a leg (Left/Right) and swaps it
+                             for a Korblox Deathspeaker leg (client-side only)
+
+    Place this in StarterPlayer > StarterPlayerScripts, or in StarterGui
+    as a LocalScript. It only affects what YOU see on your own client
+    unless the game itself replicates appearance changes (most don't).
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+-- ====== CONFIG ======
+local KORBLOX_LEFT_LEG_ID = 139607673
+local KORBLOX_RIGHT_LEG_ID = 139607718
+local HEADLESS_ASSET_ID = 134082579
+local TOGGLE_GUI_KEY = Enum.KeyCode.RightControl -- press this to show/hide the GUI
+
+-- ====== GUI SETUP ======
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HeadlessKorbloxGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 160)
+frame.Position = UDim2.new(0, 20, 0.5, -80)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -34, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Character Options"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Parent = frame
+
+-- Hide/close button (top-right corner of the frame)
+local hideButton = Instance.new("TextButton")
+hideButton.Size = UDim2.new(0, 26, 0, 26)
+hideButton.Position = UDim2.new(1, -30, 0, 2)
+hideButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+hideButton.Text = "-"
+hideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+hideButton.Font = Enum.Font.GothamBold
+hideButton.TextSize = 18
+hideButton.Parent = frame
+
+local hideButtonCorner = Instance.new("UICorner")
+hideButtonCorner.CornerRadius = UDim.new(0, 6)
+hideButtonCorner.Parent = hideButton
+
+-- Small floating button shown while the main GUI is hidden, so it can be reopened
+local reopenButton = Instance.new("TextButton")
+reopenButton.Size = UDim2.new(0, 44, 0, 44)
+reopenButton.Position = UDim2.new(0, 20, 0.5, -22)
+reopenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+reopenButton.Text = "â˜°"
+reopenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+reopenButton.Font = Enum.Font.GothamBold
+reopenButton.TextSize = 20
+reopenButton.Active = true
+reopenButton.Draggable = true
+reopenButton.Visible = false
+reopenButton.Parent = screenGui
+
+local reopenCorner = Instance.new("UICorner")
+reopenCorner.CornerRadius = UDim.new(1, 0)
+reopenCorner.Parent = reopenButton
+
+local function setGuiVisible(visible)
+    frame.Visible = visible
+    reopenButton.Visible = not visible
+end
+
+hideButton.MouseButton1Click:Connect(function()
+    setGuiVisible(false)
+end)
+
+reopenButton.MouseButton1Click:Connect(function()
+    setGuiVisible(true)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == TOGGLE_GUI_KEY then
+        setGuiVisible(not frame.Visible)
+    end
+end)
+
+-- Headless button
+local headlessButton = Instance.new("TextButton")
+headlessButton.Size = UDim2.new(1, -20, 0, 36)
+headlessButton.Position = UDim2.new(0, 10, 0, 36)
+headlessButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+headlessButton.Text = "Enable Headless"
+headlessButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+headlessButton.Font = Enum.Font.Gotham
+headlessButton.TextSize = 14
+headlessButton.Parent = frame
+
+local headlessCorner = Instance.new("UICorner")
+headlessCorner.CornerRadius = UDim.new(0, 6)
+headlessCorner.Parent = headlessButton
+
+-- Korblox button
+local korbloxButton = Instance.new("TextButton")
+korbloxButton.Size = UDim2.new(1, -20, 0, 36)
+korbloxButton.Position = UDim2.new(0, 10, 0, 82)
+korbloxButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+korbloxButton.Text = "Enable Korblox"
+korbloxButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+korbloxButton.Font = Enum.Font.Gotham
+korbloxButton.TextSize = 14
+korbloxButton.Parent = frame
+
+local korbloxCorner = Instance.new("UICorner")
+korbloxCorner.CornerRadius = UDim.new(0, 6)
+korbloxCorner.Parent = korbloxButton
+
+-- Leg picker (hidden until Korblox button pressed)
+local legPickerFrame = Instance.new("Frame")
+legPickerFrame.Size = UDim2.new(1, -20, 0, 36)
+legPickerFrame.Position = UDim2.new(0, 10, 0, 122)
+legPickerFrame.BackgroundTransparency = 1
+legPickerFrame.Visible = false
+legPickerFrame.Parent = frame
+
+local leftLegButton = Instance.new("TextButton")
+leftLegButton.Size = UDim2.new(0.48, 0, 1, 0)
+leftLegButton.Position = UDim2.new(0, 0, 0, 0)
+leftLegButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+leftLegButton.Text = "Left Leg"
+leftLegButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+leftLegButton.Font = Enum.Font.Gotham
+leftLegButton.TextSize = 13
+leftLegButton.Parent = legPickerFrame
+
+local leftLegCorner = Instance.new("UICorner")
+leftLegCorner.CornerRadius = UDim.new(0, 6)
+leftLegCorner.Parent = leftLegButton
+
+local rightLegButton = Instance.new("TextButton")
+rightLegButton.Size = UDim2.new(0.48, 0, 1, 0)
+rightLegButton.Position = UDim2.new(0.52, 0, 0, 0)
+rightLegButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+rightLegButton.Text = "Right Leg"
+rightLegButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+rightLegButton.Font = Enum.Font.Gotham
+rightLegButton.TextSize = 13
+rightLegButton.Parent = legPickerFrame
+
+local rightLegCorner = Instance.new("UICorner")
+rightLegCorner.CornerRadius = UDim.new(0, 6)
+rightLegCorner.Parent = rightLegButton
+
+-- ====== STATE ======
+local headlessEnabled = false
+local korbloxMenuOpen = false
+
+-- ====== HEADLESS LOGIC ======
+local insertedHeadlessAccessory = nil
+
+local function setHeadlessTransparency(enabled)
+    local character = player.Character
+    if not character then return end
+
+    local head = character:FindFirstChild("Head")
+    if head then
+        head.Transparency = enabled and 1 or 0
+        local faceDecal = head:FindFirstChildOfClass("Decal")
+        if faceDecal then
+            faceDecal.Transparency = enabled and 1 or 0
+        end
+    end
+
+    -- NOTE: Accessories (hats, hair, etc.) are intentionally left alone here
+    -- so they stay visible even when the head itself is hidden.
+end
+
+local function setHeadless(enabled)
+    local character = player.Character
+    if not character then return end
+
+    if enabled then
+        -- Hide the real head/accessories first
+        setHeadlessTransparency(true)
+
+        -- Try inserting the dedicated headless asset
+        local success, result = pcall(function()
+            return game:GetObjects("rbxassetid://" .. tostring(HEADLESS_ASSET_ID))
+        end)
+
+        if success and result and #result > 0 then
+            local rootModel = result[1]
+            local model = nil
+            if rootModel:IsA("Accessory") then
+                model = rootModel
+            else
+                for _, descendant in ipairs(rootModel:GetDescendants()) do
+                    if descendant:IsA("Accessory") then
+                        model = descendant
+                        break
+                    end
+                end
+                model = model or (rootModel:IsA("Model") and rootModel or nil)
+            end
+
+            if model then
+                if model:IsA("Accessory") then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    local addSuccess = humanoid and pcall(function()
+                        humanoid:AddAccessory(model)
+                    end)
+                    if not addSuccess then
+                        model.Parent = character
+                    end
+                else
+                    model.Parent = character
+                end
+                insertedHeadlessAccessory = model
+            end
+        else
+            warn("[Headless] Failed to load headless asset: " .. tostring(result))
+        end
+    else
+        -- Restore head visibility
+        setHeadlessTransparency(false)
+
+        -- Remove the inserted headless accessory if present
+        if insertedHeadlessAccessory then
+            insertedHeadlessAccessory:Destroy()
+            insertedHeadlessAccessory = nil
+        end
+    end
+end
+
+headlessButton.MouseButton1Click:Connect(function()
+    headlessEnabled = not headlessEnabled
+    setHeadless(headlessEnabled)
+    headlessButton.Text = headlessEnabled and "Disable Headless" or "Enable Headless"
+end)
+
+-- ====== KORBLOX LOGIC ======
+-- Tracks per-side state so we can cleanly disable/restore later
+local korbloxEnabled = { Left = false, Right = false }
+local korbloxSwapData = { Left = {}, Right = {} } -- list of {oldPart, motor, clonedPart}
+
+local function disableKorbloxLeg(side)
+    local character = player.Character
+    local swaps = korbloxSwapData[side]
+
+    for _, swap in ipairs(swaps) do
+        if swap.clonedPart then
+            swap.clonedPart:Destroy()
+        end
+        if swap.motor then
+            swap.motor.Enabled = true
+        end
+        if swap.oldPart then
+            swap.oldPart.Transparency = 0
+            swap.oldPart.CanCollide = true
+        end
+    end
+
+    korbloxSwapData[side] = {}
+    korbloxEnabled[side] = false
+
+    if side == "Left" then
+        leftLegButton.Text = "Left Leg"
+    else
+        rightLegButton.Text = "Right Leg"
+    end
+
+    print("[Korblox] Disabled " .. side .. " leg")
+end
+
+local function enableKorbloxLeg(side)
+    local character = player.Character
+    if not character then
+        warn("[Korblox] No character found")
+        return
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then
+        warn("[Korblox] No Humanoid found on character")
+        return
+    end
+
+    if humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+        warn("[Korblox] Your character is R6, not R15. Korblox leg replacements only work on R15 rigs.")
+        return
+    end
+
+    local assetId = (side == "Left") and KORBLOX_LEFT_LEG_ID or KORBLOX_RIGHT_LEG_ID
+    if assetId == 0 then
+        warn("[Korblox] Asset ID not set for " .. side .. " leg.")
+        return
+    end
+
+    print("[Korblox] Loading asset " .. assetId .. " for " .. side .. " leg...")
+
+    local success, result = pcall(function()
+        return game:GetObjects("rbxassetid://" .. tostring(assetId))
+    end)
+
+    if not success then
+        warn("[Korblox] game:GetObjects threw an error: " .. tostring(result))
+        return
+    end
+
+    if not result or #result == 0 then
+        warn("[Korblox] game:GetObjects returned nothing for asset " .. assetId)
+        return
+    end
+
+    local rootModel = result[1]
+
+    -- The asset is a body-part replacement model containing MeshParts named
+    -- e.g. "RightUpperLeg", "RightLowerLeg", "RightFoot" - NOT an Accessory.
+    -- We clone each matching mesh part in, rebuild its Motor6D joint to
+    -- connect to the character's rig, and hide the original limb part.
+    local partNames = { side .. "UpperLeg", side .. "LowerLeg", side .. "Foot" }
+    local replaced = {}
+    local swaps = {}
+    local anySuccess = false
+
+    for _, partName in ipairs(partNames) do
+        local newPart = nil
+        if rootModel:IsA("BasePart") and rootModel.Name == partName then
+            newPart = rootModel
+        else
+            newPart = rootModel:FindFirstChild(partName, true)
+        end
+
+        if not newPart or not newPart:IsA("BasePart") then
+            warn("[Korblox] Asset did not contain a part named '" .. partName .. "'")
+        else
+            local oldPart = character:FindFirstChild(partName)
+            if not oldPart or not oldPart:IsA("BasePart") then
+                warn("[Korblox] Character has no part named '" .. partName .. "' (make sure you're R15)")
+            else
+                -- Find the Motor6D that attaches oldPart to its parent limb
+                local motor = nil
+                for _, child in ipairs(oldPart:GetChildren()) do
+                    if child:IsA("Motor6D") and child.Part1 == oldPart then
+                        motor = child
+                        break
+                    end
+                end
+
+                if not motor then
+                    warn("[Korblox] Could not find a Motor6D joint for '" .. partName .. "'")
+                else
+                    local clonedPart = newPart:Clone()
+                    clonedPart.CFrame = oldPart.CFrame
+                    clonedPart.Parent = character
+
+                    -- If the parent limb in this chain was already replaced
+                    -- earlier in this loop, attach to the new one instead
+                    -- of the original (now-hidden) part.
+                    local part0 = motor.Part0
+                    if part0 and replaced[part0.Name] then
+                        part0 = replaced[part0.Name]
+                    end
+
+                    local newMotor = Instance.new("Motor6D")
+                    newMotor.Name = motor.Name
+                    newMotor.Part0 = part0
+                    newMotor.Part1 = clonedPart
+                    newMotor.C0 = motor.C0
+                    newMotor.C1 = motor.C1
+                    newMotor.Parent = clonedPart
+
+                    motor.Enabled = false
+                    oldPart.Transparency = 1
+                    oldPart.CanCollide = false
+
+                    replaced[partName] = clonedPart
+                    table.insert(swaps, { oldPart = oldPart, motor = motor, clonedPart = clonedPart })
+                    anySuccess = true
+                    print("[Korblox] Swapped in " .. partName)
+                end
+            end
+        end
+    end
+
+    if anySuccess then
+        korbloxSwapData[side] = swaps
+        korbloxEnabled[side] = true
+        if side == "Left" then
+            leftLegButton.Text = "Disable Left Leg"
+        else
+            rightLegButton.Text = "Disable Right Leg"
+        end
+    else
+        warn("[Korblox] Nothing was swapped - see warnings above.")
+    end
+end
+
+local function toggleKorbloxLeg(side)
+    if korbloxEnabled[side] then
+        disableKorbloxLeg(side)
+    else
+        enableKorbloxLeg(side)
+    end
+end
+
+korbloxButton.MouseButton1Click:Connect(function()
+    korbloxMenuOpen = not korbloxMenuOpen
+    legPickerFrame.Visible = korbloxMenuOpen
+end)
+
+leftLegButton.MouseButton1Click:Connect(function()
+    toggleKorbloxLeg("Left")
+end)
+
+rightLegButton.MouseButton1Click:Connect(function()
+    toggleKorbloxLeg("Right")
+end)
